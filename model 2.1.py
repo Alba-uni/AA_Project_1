@@ -9,32 +9,43 @@ from scipy.stats import norm  # normal distribution
 ## ---------------------------------------------------------
 
 
-def simulate_income_model(seed=1234):
+def simulate_income_model(
+    seed=1234,
+    education_diff=True,
+    shocks=True,
+    depreciation=True,
+    unemployment=True
+):
 
     # Parameters
 
     N = 50_000
 
     # Education parameters
+
     p_e = np.array([0.40, 0.35, 0.25])
     S_e = np.array([1, 3, 5])
     h0_e = np.array([1.00, 1.20, 1.55])
     Delta_e = np.array([0.010, 0.020, 0.030])
 
     # Human capital parameters
+
     delta = 0.06
     sigma_psi = 0.10
 
     # Labor market parameters
+
     job_finding = 0.60
     job_separation = 0.05
 
     # Income parameters
+
     y_SU = 0.45
     rho = 0.60
     y_floor = 0.35
 
     # Ages
+
     ages = np.arange(18, 66)
     T = len(ages)
 
@@ -44,40 +55,34 @@ def simulate_income_model(seed=1234):
 
     # Education
 
-    # 0 = short
-    # 1 = medium
-    # 2 = long
-    education = rng.choice(
+    education_draw = rng.choice(
         3,
         size=N,
         p=p_e
     )
 
-    # Number of years in education
+    if education_diff:
+        education = education_draw
+    else:
+        # Everyone gets medium education
+        education = np.ones(N, dtype=int)
+
     education_years = S_e[education]
 
-    # Initial human capital
     human_capital = h0_e[education].copy()
 
-    # Education-specific human capital growth
     growth = Delta_e[education]
 
     # Arrays for simulation
 
-    # Income for each person at each age
     income = np.zeros((N, T))
 
-    # Employment status for each person at each age
     employed_history = np.zeros((N, T), dtype=bool)
 
-    # Whether each person is in the labor market
     labor_force_history = np.zeros((N, T), dtype=bool)
 
-    # Everyone starts outside employment
     employed = np.zeros(N, dtype=bool)
 
-    # Last income from a job
-    # nan means the person has never had a job
     last_job_income = np.full(N, np.nan)
 
     # Simulate life cycle
@@ -89,16 +94,28 @@ def simulate_income_model(seed=1234):
         # Education or labor market
 
         in_education = years_since_18 < education_years
+
         in_labor_market = ~in_education
 
         # Employment status
 
-        working = in_labor_market & employed
-        unemployed = in_labor_market & ~employed
+        if unemployment:
+
+            working = in_labor_market & employed
+
+            unemployed = in_labor_market & ~employed
+
+        else:
+
+            # Everyone works immediately after education
+            working = in_labor_market
+
+            unemployed = np.zeros(N, dtype=bool)
 
         # Save status
 
         labor_force_history[:, t] = in_labor_market
+
         employed_history[:, t] = working
 
         # Income during education
@@ -108,8 +125,6 @@ def simulate_income_model(seed=1234):
         # Income while employed
 
         income[working, t] = human_capital[working]
-
-        # Save most recent job income
 
         last_job_income[working] = income[working, t]
 
@@ -134,11 +149,16 @@ def simulate_income_model(seed=1234):
 
         # Human capital shock
 
-        psi = rng.lognormal(
+        psi_draw = rng.lognormal(
             mean=-0.5 * sigma_psi**2,
             sigma=sigma_psi,
             size=N
         )
+
+        if shocks:
+            psi = psi_draw
+        else:
+            psi = np.ones(N)
 
         # Human capital while employed
 
@@ -150,29 +170,33 @@ def simulate_income_model(seed=1234):
 
         # Human capital while unemployed
 
+        if depreciation:
+            depreciation_rate = delta
+        else:
+            depreciation_rate = 0.0
+
         human_capital[unemployed] = (
             human_capital[unemployed]
-            * (1 - delta)
+            * (1 - depreciation_rate)
             * psi[unemployed]
         )
-
-        # Human capital does not change during education
 
         # Labor market transitions
 
         draw = rng.random(N)
 
-        # Unemployed people can find a job
-        find_job = unemployed & (draw < job_finding)
+        if unemployment:
 
-        # Employed people can lose their job
-        lose_job = working & (draw < job_separation)
+            find_job = unemployed & (draw < job_finding)
 
-        # Update employment status for next year
-        employed[find_job] = True
-        employed[lose_job] = False
+            lose_job = working & (draw < job_separation)
+
+            employed[find_job] = True
+
+            employed[lose_job] = False
 
     # Return results
+
     return {
         "ages": ages,
         "income": income,
@@ -180,5 +204,3 @@ def simulate_income_model(seed=1234):
         "employed": employed_history,
         "labor_force": labor_force_history
     }
-
-
