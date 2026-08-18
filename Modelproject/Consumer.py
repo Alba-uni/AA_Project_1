@@ -133,7 +133,11 @@ class ConsumerClass:
 
         par = self.par
 
-        pass
+        # Step 1: combine goods 2 and 3 into travel composite
+        x_B = self.ces(x2, x3, par.beta, par.sigma_B)
+        
+        # Step 2: combine good 1 and travel composite into utility
+        u = self.ces(x1, x_B, par.alpha, par.sigma_A)
 
         return u
 
@@ -191,7 +195,11 @@ class ConsumerClass:
 
         """
 
-        pass
+        # Get the three quantities from shares
+        x1, x2, x3 = self.quantities(s1, w)
+        
+        # Return utility
+        u = self.utility(x1, x2, x3)
 
         return u
 
@@ -237,17 +245,28 @@ class ConsumerClass:
         opt = SimpleNamespace()
 
         # a. the two grids
-        pass
+        s1_vec = np.linspace(0, 1, N)
+        w_vec = np.linspace(0, 1, N)
+        opt.s1_grid, opt.w_grid = np.meshgrid(s1_vec, w_vec, indexing='ij')
 
         # b. utility in every grid point
-        pass
+        opt.u_grid = self.value_of_choice(opt.s1_grid, opt.w_grid)
 
         # c. the best point
-        pass
+        best_idx = np.argmax(opt.u_grid)
+        i, j = np.unravel_index(best_idx, opt.u_grid.shape)
+        opt.s1 = opt.s1_grid[i, j]
+        opt.w = opt.w_grid[i, j]
 
-        # d. results
-        # opt.s1, opt.w, opt.s2, opt.s3, opt.u
-        # opt.s1_grid, opt.w_grid, opt.u_grid (needed for the figures)
+        # d. the three budget shares and utility
+        opt.s1, opt.s2, opt.s3 = self.shares(opt.s1, opt.w)
+        opt.u = opt.u_grid[i, j]
+
+        # e. print if requested
+        if do_print:
+            print(f'Grid search with N={N}')
+            print(f'  s1 = {opt.s1:.6f}, s2 = {opt.s2:.6f}, s3 = {opt.s3:.6f}')
+            print(f'  utility = {opt.u:.6f}')
 
         return opt
 
@@ -279,9 +298,26 @@ class ConsumerClass:
         path = [s0.copy()]
 
         # c. minimize
-        pass
+        res = optimize.minimize(
+            self.objective, s0, 
+            method='L-BFGS-B', 
+            bounds=((0,1),(0,1)),
+            callback=lambda sk: path.append(sk.copy()),
+            **kwargs
+        )
 
         # d. results
-        # opt.s1, opt.w, opt.s2, opt.s3, opt.u, opt.path, opt.res
+        opt.s1, opt.w = res.x
+        opt.s2, opt.s3 = (1-opt.s1)*opt.w, (1-opt.s1)*(1-opt.w)
+        opt.u = self.value_of_choice(opt.s1, opt.w)
+        opt.path = np.array(path)
+        opt.res = res
+
+        # e. print if requested
+        if do_print:
+            print(f'L-BFGS-B optimization')
+            print(f'  s1 = {opt.s1:.6f}, s2 = {opt.s2:.6f}, s3 = {opt.s3:.6f}')
+            print(f'  utility = {opt.u:.6f}')
+            print(f'  iterations = {res.nit}, function evals = {res.nfev}')
 
         return opt
