@@ -258,16 +258,20 @@ class ConsumerClass:
         opt.s1 = opt.s1_grid[i, j]
         opt.w = opt.w_grid[i, j]
 
-        # d. the three budget shares and utility
+        # d. results
         opt.s1, opt.s2, opt.s3 = self.shares(opt.s1, opt.w)
         opt.u = opt.u_grid[i, j]
+
+        # Number of function evaluations
+        opt.nfev = N**2
 
         # e. print if requested
         if do_print:
             print(f'Grid search with N={N}')
+            print(f'  s1 = {opt.s1:.6f}, w = {opt.w:.6f}')
             print(f'  s1 = {opt.s1:.6f}, s2 = {opt.s2:.6f}, s3 = {opt.s3:.6f}')
             print(f'  utility = {opt.u:.6f}')
-
+            print(f'  function evaluations = {opt.nfev}')
         return opt
 
     def solve(self,s0=None,do_print=True,**kwargs):
@@ -308,16 +312,16 @@ class ConsumerClass:
 
         # d. results
         opt.s1, opt.w = res.x
-        opt.s2, opt.s3 = (1-opt.s1)*opt.w, (1-opt.s1)*(1-opt.w)
+        opt.s1, opt.s2, opt.s3 = self.shares(opt.s1, opt.w)
         opt.u = self.value_of_choice(opt.s1, opt.w)
         opt.path = np.array(path)
         opt.res = res
 
-        # e. print if requested
+       # e. print if requested
         if do_print:
-            print(f'L-BFGS-B optimization')
+            print('L-BFGS-B optimization')
+            print(f'  s1 = {opt.s1:.6f}, w = {opt.w:.6f}')
             print(f'  s1 = {opt.s1:.6f}, s2 = {opt.s2:.6f}, s3 = {opt.s3:.6f}')
             print(f'  utility = {opt.u:.6f}')
             print(f'  iterations = {res.nit}, function evals = {res.nfev}')
-
         return opt
