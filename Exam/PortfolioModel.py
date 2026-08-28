@@ -79,12 +79,57 @@ class PortfolioModelClass:
 
     # the share of wealth in the risky asset after trading, and the amount traded
     def trade(self,theta):
-        raise NotImplementedError
+        par = self.par
+
+        distance = np.abs(theta - par.theta_star)
+        traded = distance > par.Delta
+        theta_post = np.where(traded, par.theta_star, theta)
+        amount_traded = np.abs(theta_post - theta)
+
+        return theta_post, amount_traded, traded
 
     # simulate all N portfolios forward T periods
     def simulate(self,R=None):
-        raise NotImplementedError
+        par = self.par
+
+        if R is None:
+            R = self.draw_returns()
+
+        R_safe = np.exp(par.r)
+        W = np.empty((par.N, par.T + 1))
+        theta = np.empty((par.N, par.T + 1))
+        traded = np.zeros((par.N, par.T), dtype=bool)
+
+        W[:, 0] = par.W0
+        theta[:, 0] = par.theta_star
+
+        for t in range(par.T):
+            theta_post, amount_traded, traded[:, t] = self.trade(theta[:, t])
+            W_post = W[:, t] * (1 - par.tau * amount_traded)
+            risky_wealth = theta_post * W_post * R[:, t]
+            safe_wealth = (1 - theta_post) * W_post * R_safe
+            W[:, t + 1] = risky_wealth + safe_wealth
+            theta[:, t + 1] = risky_wealth / W[:, t + 1]
+
+        self.sim.W = W
+        self.sim.theta = theta
+        self.sim.traded = traded
+        self.sim.R = R
+
+        return self.sim
 
     # the numbers to report for a rule, including expected utility
     def summary(self):
-        raise NotImplementedError
+        par = self.par
+        W = self.sim.W
+        theta = self.sim.theta
+        WT = W[:, -1]
+
+        return {
+            'Avg trades': self.sim.traded.sum(axis=1).mean(),
+            'Avg distance': np.abs(theta[:, :-1] - par.theta_star).mean(),
+            'Mean WT': WT.mean(),
+            'Median WT': np.median(WT),
+            'P10 WT': np.percentile(WT, 10),
+            'Expected utility': self.u(WT).mean()
+        }
