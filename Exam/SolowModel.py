@@ -136,12 +136,19 @@ class SolowModelClass:
 
     # the savings path s_t = s_bar + (s0-s_bar)*phi**t
     def s_path(self,s0,phi):
-        raise NotImplementedError
+        par = self.par
+        t = np.arange(par.T)
+        return par.s_bar + (s0 - par.s_bar)*phi**t
 
     # the discounted sum of log(c_t)
     def welfare(self,c):
-        raise NotImplementedError
+        par = self.par
+        c = np.asarray(c,dtype=float)
+        assert c.size == par.T, f'consumption must have {par.T} elements'
+        assert np.all(c > 0), 'consumption must be positive'
+        return np.sum(par.beta**np.arange(par.T)*np.log(c))
 
     # welfare of the savings rule (s0,phi)
     def evaluate(self,s0,phi):
-        raise NotImplementedError
+        sim = self.simulate(self.s_path(s0,phi))
+        return self.welfare(sim.c)
