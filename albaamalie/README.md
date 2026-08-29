@@ -2,9 +2,9 @@
 
 ## Portfolio Contents
 This portfolio (ZIP file) contains the following:
-01_dataproject – Data Project
-02_modelproject – Model Project
-03_examproject – Exam Project
+01_dataproject – dataproject.ipynb and Income_model.py
+02_modelproject – modelproject.ipynb, Consumer.py and Government.py
+03_examproject – examproject.ipynb, states.py, PortfolioModel.py and SolowModel.py
 README.md – Portfolio overview and group member contributions
 AI_Declaration – AI declaration
 
